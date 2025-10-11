@@ -103,6 +103,17 @@ const envSource = typeof Bun !== "undefined" ? Bun.env : process.env;
 if (typeof Bun === "undefined") dotenv.config();
 ```
 
+**Directory Management:**
+```typescript
+function ensureDirectoryExists(dirPath: string): string {
+  const fullPath = path.resolve(dirPath);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+  }
+  return dirPath;
+}
+```
+
 ## Context Management
 
 - Maintain configuration state across multiple file reviews
@@ -229,6 +240,14 @@ function parseEnvVar(value: string | undefined, type: "string" | "number" | "boo
     default:
       return value;
   }
+}
+
+function ensureDirectoryExists(dirPath: string): string {
+  const fullPath = path.resolve(dirPath);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+  }
+  return dirPath;
 }
 
 function loadConfigFromEnv(): Partial<Config> {
