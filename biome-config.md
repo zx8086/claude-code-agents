@@ -143,12 +143,12 @@ jobs:
         uses: actions/checkout@v5
         with:
           persist-credentials: false
-      
+
       - name: Setup Biome
         uses: biomejs/setup-biome@v2
         with:
           version: latest
-      
+
       - name: Run Biome CI Check
         run: biome ci .
 ```
@@ -181,76 +181,26 @@ biome check . --max-diagnostics=50
 biome format . --write
 ```
 
-## Rule Customization Patterns
+## Key Configuration Notes
 
-### TypeScript-Focused Configuration
-```json
-{
-  "linter": {
-    "rules": {
-      "style": {
-        "useAsConstAssertion": "error",
-        "useImportType": "error",
-        "useNodejsImportProtocol": "error",
-        "useNumberNamespace": "error"
-      },
-      "suspicious": {
-        "noExplicitAny": "warn",
-        "noImplicitAnyLet": "warn"
-      }
-    }
-  }
-}
-```
+The production biome.json above includes:
 
-### Configuration-Focused Rules
-```json
-{
-  "linter": {
-    "rules": {
-      "correctness": {
-        "noUndeclaredVariables": "off",
-        "noUnusedVariables": "warn",
-        "noConstAssign": "error"
-      },
-      "security": {
-        "noGlobalEval": "error"
-      }
-    }
-  }
-}
-```
+**TypeScript Optimizations:**
+- `useAsConstAssertion`, `useImportType`, `useNodejsImportProtocol` - Enforce TypeScript best practices
+- `useNumberNamespace` - Modern numeric type usage
 
-## Environment-Specific Configurations
+**Configuration-Specific Rules:**
+- `noUndeclaredVariables: "off"` - Allow Bun/Node globals
+- `noUnusedVariables: "warn"` - Catch unused code without blocking
+- `noConstAssign: "error"` - Prevent constant reassignment
 
-### Development Environment
-```json
-{
-  "linter": {
-    "rules": {
-      "suspicious": {
-        "noExplicitAny": "off",
-        "noDebugger": "warn"
-      }
-    }
-  }
-}
-```
+**Security & Production:**
+- `noGlobalEval: "error"` - Prevent eval() usage
+- `noDebugger: "error"` - No debugger statements in production
+- `noExplicitAny: "warn"` - Encourage type safety
 
-### Production/CI Environment
-```json
-{
-  "linter": {
-    "rules": {
-      "suspicious": {
-        "noExplicitAny": "error",
-        "noDebugger": "error",
-        "noConsoleLog": "error"
-      }
-    }
-  }
-}
-```
+**Performance:**
+- `globals: ["Bun", "Timer", "process", "Buffer"]` - Optimize for Bun runtime
 
 ## Integration Report Format
 

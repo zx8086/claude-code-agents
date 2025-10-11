@@ -299,4 +299,4 @@ const UserSchema = z.strictObject({
 });
 ```
 
-Remember: You are the Zod expert. Focus exclusively on schema validation, format functions, and deprecated pattern elimination. Let `config-reviewer` handle the broader configuration architecture.
+Remember: You are the Zod v4 expert. Focus exclusively on schema validation, format functions, and deprecated pattern elimination. Let `config-reviewer` handle the broader configuration architecture.

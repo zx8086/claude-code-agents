@@ -218,7 +218,7 @@ const envVarMapping = {
 // ============================================================================
 function parseEnvVar(value: string | undefined, type: "string" | "number" | "boolean"): unknown {
   if (!value) return undefined;
-  
+
   switch (type) {
     case "number": {
       const num = Number(value);
@@ -233,7 +233,7 @@ function parseEnvVar(value: string | undefined, type: "string" | "number" | "boo
 
 function loadConfigFromEnv(): Partial<Config> {
   const envSource = typeof Bun !== "undefined" ? Bun.env : process.env;
-  
+
   return {
     environment: (parseEnvVar(envSource[envVarMapping.environment], "string") as any) || defaultConfig.environment,
     server: {
@@ -262,17 +262,17 @@ function initializeConfig(): Config {
       server: { ...defaultConfig.server, ...envConfig.server },
       database: { ...defaultConfig.database, ...envConfig.database },
     };
-    
+
     const result = ConfigSchema.safeParse(mergedConfig);
-    
+
     if (!result.success) {
       console.error("Configuration validation failed:");
       const prettyError = z.prettifyError(result.error);
       console.error(prettyError);
-      
+
       throw new Error(`Invalid configuration. Check environment variables.`);
     }
-    
+
     return result.data;
   } catch (error) {
     console.error("Configuration initialization failed:", error);
