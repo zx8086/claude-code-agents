@@ -92,7 +92,13 @@ z.string().email()
 z.string().url()
 z.string().uuid()
 z.string().ip()
+z.string().cidr()
+z.string().datetime()
+z.string().base64()
 z.number().int()
+z.number().positive()
+z.number().negative()
+z.number().finite()
 ```
 
 ### Deprecated Error Handling
@@ -100,13 +106,70 @@ z.number().int()
 z.string({ invalid_type_error: "..." })
 z.object({}).parse(data, { errorMap: ... })
 ctx.addIssue({ code: "custom" })
+ctx.addIssue({ code: ZodIssueCode.custom })
+ctx.addIssue({ code: ZodIssueCode.invalid_type })
+```
+
+### Deprecated ZodIssueCode Enum
+```typescript
+import { ZodIssueCode } from "zod"
+
+ctx.addIssue({ code: ZodIssueCode.custom })
+ctx.addIssue({ code: ZodIssueCode.invalid_type })
+ctx.addIssue({ code: ZodIssueCode.too_big })
+ctx.addIssue({ code: ZodIssueCode.too_small })
 ```
 
 ### Deprecated Object Methods
 ```typescript
 z.object({}).strict()
 z.object({}).passthrough()
+z.object({}).strip()
+z.object({}).nonstrict()
+z.object({}).deepPartial()
 schema1.merge(schema2)
+```
+
+### Deprecated Utility Methods
+```typescript
+z.ostring()
+z.onumber()
+z.oboolean()
+z.promise()
+schema.describe("description")
+```
+
+### Deprecated ZodError Methods
+```typescript
+zodError.format()
+zodError.flatten()
+zodError.formErrors
+```
+
+## Modern Replacements (v4 Correct Patterns)
+
+### Object Schema - Modern Approach
+```typescript
+z.strictObject({})
+z.looseObject({})
+const merged = z.object({ ...schema1.shape, ...schema2.shape })
+```
+
+### Metadata - Modern Approach
+```typescript
+schema.meta({ description: "..." })
+```
+
+### Error Handling - Modern Approach
+```typescript
+const prettyError = z.prettifyError(result.error)
+```
+
+### Optional Types - Modern Approach
+```typescript
+z.string().optional()
+z.number().optional()
+z.boolean().optional()
 ```
 
 ## Validation Analysis Protocol
