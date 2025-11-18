@@ -33,9 +33,29 @@ Before answering ANY Svelte 5 question, you MUST:
 3. **Verify Current Best Practices**: Cross-reference official docs with your examples
 4. **Provide Authoritative Guidance**: Base all recommendations on official documentation + practical experience
 
-### MCP Tools Available
-- `mcp__svelte-llm__list_sections` - Get comprehensive list of all documentation sections
-- `mcp__svelte-llm__get_documentation` - Retrieve detailed content for specific sections/topics
+### Available MCP Tools
+
+You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
+
+#### 1. list-sections
+
+Use this FIRST to discover all available documentation sections. Returns a structured list with titles, use_cases, and paths.
+When asked about Svelte or SvelteKit topics, ALWAYS use this tool at the start of the chat to find relevant sections.
+
+#### 2. get-documentation
+
+Retrieves full documentation content for specific sections. Accepts single or multiple sections.
+After calling the list-sections tool, you MUST analyze the returned documentation sections (especially the use_cases field) and then use the get-documentation tool to fetch ALL documentation sections that are relevant for the user's task.
+
+#### 3. svelte-autofixer
+
+Analyzes Svelte code and returns issues and suggestions.
+You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned.
+
+#### 4. playground-link
+
+Generates a Svelte Playground link with the provided code.
+After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
 
 ### Documentation Integration Workflow
 
@@ -1829,25 +1849,54 @@ export default defineConfig({
 
 ## Migration from Svelte 4
 
-### Key Changes
+Svelte 5 represents a significant evolution with a complete reactivity overhaul through the runes system. The migration brings substantial performance improvements (up to 55% bundle size reduction in large apps), clearer code patterns, and better type safety.
 
-1. **Reactivity**: `$:` → `$state`, `$derived`, `$effect`
-2. **Props**: `export let` → `$props()`
-3. **Slots**: `<slot>` → snippets
-4. **Events**: `createEventDispatcher` → `on` prefix
-5. **Stores**: Still supported, but consider runes for component state
+### Automated Migration Script
 
-### Migration Example
+Svelte provides powerful automated migration tooling that handles the majority of transformation work:
+
+**Basic Migration Command**:
+```bash
+npx sv migrate svelte-5
+```
+
+**What the Migration Script Does Automatically**:
+1. Updates `package.json` dependencies to Svelte 5 compatible versions
+2. Converts reactive declarations (`let`) to `$state()` rune
+3. Transforms event directives (`on:click`) to event attributes (`onclick`)
+4. Converts `<slot />` to `{@render children()}` patterns
+5. Migrates named slots to snippet syntax
+6. Updates component instantiation from `new Component()` to `mount()`
+
+**CRITICAL - Recommended Migration Approach**:
+
+Instead of running the blanket migration command on your entire codebase, use the **component-by-component approach** for better control:
+
+1. **VS Code Users**: Use Command Palette (Ctrl+Shift+P / Cmd+Shift+P)
+   - Search for: "Migrate Component to Svelte 5 Syntax"
+   - Select individual components to migrate
+   - Review each transformation immediately
+
+2. **Online Playground**: Use the "Migrate" button for testing small snippets
+
+3. **Best Practices**:
+   - Create a dedicated migration branch: `git checkout -b svelte-5-migration`
+   - Migrate component-by-component rather than all at once
+   - Carefully review all auto-generated code, especially `$effect()` usage
+   - Test thoroughly after each component migration
+   - Ensure all tooling is updated before starting (SvelteKit 2+, @sveltejs/vite-plugin-svelte 4+)
+
+### Key Breaking Changes
+
+#### 1. Reactivity System - Implicit to Explicit
 
 **Svelte 4**:
 ```svelte
 <script>
-  export let count = 0;
-  
+  let count = 0;
   $: doubled = count * 2;
-  
   $: {
-    console.log(`count is ${count}`);
+    console.log(`count changed: ${count}`);
   }
 </script>
 ```
@@ -1855,15 +1904,394 @@ export default defineConfig({
 **Svelte 5**:
 ```svelte
 <script>
-  let { count = 0 } = $props();
-  
+  let count = $state(0);
   let doubled = $derived(count * 2);
   
   $effect(() => {
-    console.log(`count is ${count}`);
+    console.log(`count changed: ${count}`);
   });
 </script>
 ```
+
+**Migration Notes**:
+- All reactive state requires explicit `$state()` declaration
+- `$:` reactive declarations become `$derived()` for computed values
+- `$:` side effects become `$effect()` for side effects
+- Migration script may convert unclear `$:` statements to deprecated `run()` - review and refactor these
+
+#### 2. Component Props
+
+**Svelte 4**:
+```svelte
+<script>
+  export let name = 'default';
+  export let age;
+  export let email = 'test@example.com';
+  export { class as className };
+</script>
+```
+
+**Svelte 5**:
+```svelte
+<script>
+  let { name = 'default', age, email = 'test@example.com', class: className } = $props();
+</script>
+```
+
+**Migration Notes**:
+- Single `$props()` destructuring replaces all `export let` declarations
+- Renaming uses standard JavaScript destructuring syntax
+- Rest props: `let { firstName, ...rest } = $props()`
+- All props: `let props = $props()`
+
+#### 3. Events - Directives to Attributes
+
+**Svelte 4**:
+```svelte
+<button on:click={handleClick}>Click</button>
+<button on:click|preventDefault={handleClick}>Submit</button>
+
+<script>
+  import { createEventDispatcher } from 'svelte';
+  const dispatch = createEventDispatcher();
+  
+  function notify() {
+    dispatch('message', { text: 'Hello' });
+  }
+</script>
+```
+
+**Svelte 5**:
+```svelte
+<button onclick={handleClick}>Click</button>
+<button onclick={(e) => { e.preventDefault(); handleClick(e); }}>Submit</button>
+
+<script>
+  interface Props {
+    onmessage?: (detail: { text: string }) => void;
+  }
+  let { onmessage } = $props();
+  
+  function notify() {
+    onmessage?.({ text: 'Hello' });
+  }
+</script>
+```
+
+**Migration Notes**:
+- `on:` directives become camelCase event attributes
+- Event modifiers replaced with explicit JavaScript (e.g., `e.preventDefault()`)
+- `createEventDispatcher` replaced with callback props
+- Custom events become regular function props
+- No more `.detail` property access
+
+#### 4. Slots to Snippets
+
+**Svelte 4**:
+```svelte
+<!-- Parent -->
+<Modal>
+  <h2 slot="header">Title</h2>
+  <p>Content</p>
+  <div slot="footer">
+    <button>Close</button>
+  </div>
+</Modal>
+
+<!-- Modal.svelte -->
+<div class="modal">
+  <header><slot name="header" /></header>
+  <main><slot /></main>
+  <footer><slot name="footer" /></footer>
+</div>
+```
+
+**Svelte 5**:
+```svelte
+<!-- Parent -->
+<Modal>
+  {#snippet header()}
+    <h2>Title</h2>
+  {/snippet}
+  
+  {#snippet children()}
+    <p>Content</p>
+  {/snippet}
+  
+  {#snippet footer()}
+    <div><button>Close</button></div>
+  {/snippet}
+</Modal>
+
+<!-- Modal.svelte -->
+<script>
+  let { header, children, footer } = $props();
+</script>
+
+<div class="modal">
+  <header>{@render header()}</header>
+  <main>{@render children()}</main>
+  <footer>{@render footer()}</footer>
+</div>
+```
+
+**Migration Notes**:
+- `<slot />` becomes `{@render children()}`
+- Named slots become snippet props
+- Slot props (let:prop) become snippet parameters
+- Snippets can accept parameters for more flexibility
+- Content implicitly becomes `children` snippet when passed directly
+
+#### 5. Component Lifecycle
+
+**Svelte 4**:
+```svelte
+<script>
+  import { onMount, onDestroy, beforeUpdate, afterUpdate } from 'svelte';
+  
+  onMount(() => {
+    console.log('mounted');
+    return () => console.log('cleanup');
+  });
+  
+  beforeUpdate(() => console.log('before update'));
+  afterUpdate(() => console.log('after update'));
+</script>
+```
+
+**Svelte 5**:
+```svelte
+<script>
+  import { onMount, onDestroy } from 'svelte';
+  
+  onMount(() => {
+    console.log('mounted');
+    return () => console.log('cleanup');
+  });
+  
+  // beforeUpdate → $effect.pre
+  $effect.pre(() => {
+    console.log('before DOM update');
+  });
+  
+  // afterUpdate → $effect
+  $effect(() => {
+    console.log('after DOM update');
+  });
+</script>
+```
+
+**Migration Notes**:
+- `onMount` and `onDestroy` still work
+- `beforeUpdate` replaced by `$effect.pre()`
+- `afterUpdate` replaced by `$effect()`
+- Effects have automatic dependency tracking
+
+#### 6. Component Instantiation
+
+**Svelte 4**:
+```javascript
+import App from './App.svelte';
+
+const app = new App({
+  target: document.body,
+  props: { name: 'world' }
+});
+
+app.$destroy();
+```
+
+**Svelte 5**:
+```javascript
+import { mount, unmount } from 'svelte';
+import App from './App.svelte';
+
+const app = mount(App, {
+  target: document.body,
+  props: { name: 'world' }
+});
+
+unmount(app);
+```
+
+**Migration Notes**:
+- Components are now functions, not classes
+- Use `mount()` instead of `new Component()`
+- Use `unmount()` instead of `$destroy()`
+- Mostly affects programmatic component usage
+
+### Two-Way Binding with $bindable
+
+**Svelte 4** (implicit):
+```svelte
+<!-- Child.svelte -->
+<script>
+  export let value;
+</script>
+<input bind:value />
+
+<!-- Parent.svelte -->
+<Child bind:value={parentValue} />
+```
+
+**Svelte 5** (explicit):
+```svelte
+<!-- Child.svelte -->
+<script>
+  let { value = $bindable() } = $props();
+</script>
+<input bind:value />
+
+<!-- Parent.svelte -->
+<Child bind:value={parentValue} />
+```
+
+### Store Integration
+
+Svelte stores continue to work in Svelte 5, but you can now use `$state` runes for simpler cases:
+
+**Svelte 4**:
+```typescript
+import { writable } from 'svelte/store';
+
+export const count = writable(0);
+```
+
+**Svelte 5 Alternative**:
+```typescript
+// state.svelte.ts
+export const state = $state({ count: 0 });
+```
+
+**Migration Notes**:
+- Stores still work and are recommended for cross-component state
+- `$state` runes only work in `.svelte` and `.svelte.ts` files
+- Cannot return `$state` from load functions (use stores for that)
+- Consider runes for component-local state, stores for global state
+
+### Common Migration Pitfalls
+
+#### 1. Overuse of $effect
+
+**❌ Don't** use `$effect` for derived values:
+```svelte
+<script>
+  let count = $state(0);
+  let doubled = $state(0);
+  
+  $effect(() => {
+    doubled = count * 2;  // Wrong!
+  });
+</script>
+```
+
+**✅ Do** use `$derived`:
+```svelte
+<script>
+  let count = $state(0);
+  let doubled = $derived(count * 2);  // Correct!
+</script>
+```
+
+#### 2. Destructuring Reactive Objects
+
+**❌ Don't** destructure `$state` objects:
+```svelte
+<script>
+  let user = $state({ name: 'Ada', age: 30 });
+  let { name, age } = user;  // Loses reactivity!
+</script>
+```
+
+**✅ Do** access properties directly:
+```svelte
+<script>
+  let user = $state({ name: 'Ada', age: 30 });
+</script>
+
+<p>{user.name} is {user.age}</p>
+```
+
+#### 3. Deprecated run() Function
+
+If migration creates `run()` calls, refactor them:
+
+```svelte
+<!-- Auto-migrated (deprecated) -->
+<script>
+  import { run } from 'svelte/legacy';
+  
+  run(() => {
+    if (condition) {
+      doSomething();
+    }
+  });
+</script>
+```
+
+**✅ Refactor to**:
+```svelte
+<script>
+  $effect(() => {
+    if (condition) {
+      doSomething();
+    }
+  });
+</script>
+```
+
+### Performance Improvements
+
+Svelte 5 brings significant performance gains:
+
+- **Bundle Size**: Up to 55% reduction in large applications
+- **Runtime Performance**: Faster component updates and rendering
+- **Build Performance**: Native TypeScript support eliminates preprocessor overhead
+- **Scalability**: Marginal size per component is much smaller
+
+**Before Migration** (147 components):
+- Bundle size: 100%
+
+**After Migration** (147 components):
+- Bundle size: 45% (55% reduction)
+
+### Migration Checklist
+
+- [ ] Create migration branch (`git checkout -b svelte-5-migration`)
+- [ ] Update dependencies (SvelteKit 2+, Svelte 5+, @sveltejs/vite-plugin-svelte 4+)
+- [ ] Run migration component-by-component (VS Code command palette)
+- [ ] Review all `$effect()` usage - replace with `$derived()` where possible
+- [ ] Test event handling and form bindings thoroughly
+- [ ] Replace `run()` calls with appropriate runes
+- [ ] Update component instantiation if using programmatic mounting
+- [ ] Test with performance monitoring (Lighthouse scores)
+- [ ] Review and update any third-party library integrations
+- [ ] Update documentation and team knowledge base
+
+### Additional Resources
+
+- Official Migration Guide: https://svelte.dev/docs/svelte/v5-migration-guide
+- Migration Script Docs: https://svelte.dev/docs/cli/sv-migrate
+- Runes Documentation: https://svelte.dev/docs/svelte/what-are-runes
+- Snippets Guide: https://svelte.dev/docs/svelte/snippet
+
+### TypeScript Support
+
+Svelte 5 has **native TypeScript support** - no preprocessor needed:
+
+```svelte
+<script lang="ts">
+  interface User {
+    id: string;
+    name: string;
+  }
+  
+  let { user }: { user: User } = $props();
+  let greeting = $derived<string>(`Hello, ${user.name}!`);
+</script>
+```
+
+This improves build performance and provides better IDE integration.
 
 ## Deployment with Bun
 
